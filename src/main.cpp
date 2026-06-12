@@ -1,7 +1,10 @@
 #include<iostream>
 
+#include"Image.h"
+
 int main()
 {
-	std::cout << "ImageLab!" << std::endl;
+	auto image = Image{};
+	std::cout << "ImageLab! : " << image.isValid() << std::endl;
 	return 0;
 }
