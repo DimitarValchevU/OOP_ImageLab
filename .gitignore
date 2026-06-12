@@ -1,0 +1,53 @@
+# Dependency files
+*.d
+
+# Compiled object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Dynamic / shared libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran modules
+*.mod
+*.smod
+
+# Binary executables
+*.exe
+*.out
+*.app
+
+# Local project build outputs
+/build/
+/out/
+/cmake-build-debug/
+/cmake-build-release/
+
+# IDEs, editors & system files
+.idea/
+# Visual Studio Code
+.vscode/
+# Visual Studio
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.vs/
+# Vim text editor swap files
+*.swp
+# macOS system files
+.DS_Store
