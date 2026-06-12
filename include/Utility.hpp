@@ -2,6 +2,8 @@
 
 #define UTILITY_HPP
 
+typedef float float32_t;
+
 enum class ErrorType
 {
 	UnknownError,
@@ -9,7 +11,12 @@ enum class ErrorType
 	InvalidFilePath,
 	InvalidNetpbmFormat,
 
+	InvalidImage,
 	InvalidPixel,
+	InvalidImageData,
+
+	InvalidFilter
 };
 
 #endif // !UTILITY_HPP
+

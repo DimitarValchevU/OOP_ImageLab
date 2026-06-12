@@ -71,6 +71,9 @@ auto Image::saveNetpbm(const std::filesystem::path& path = std::string{}) const-
 {
 	try
 	{
+		if (!m_isValid)
+			return std::unexpected(ErrorType::InvalidImage);
+
 		auto usedPath = path.empty() ? m_path : path;
 		auto ofs = std::ofstream{ usedPath, std::ios::binary };
 		if (!ofs)
@@ -148,6 +151,8 @@ auto Image::isValid() const -> bool
 
 auto Image::getRGBPixel(size_t x, size_t y) const->std::expected<RGBPixel, ErrorType>
 {
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
 	if (m_netpbmType != NetpbmType::PPM)
 		return std::unexpected(ErrorType::InvalidNetpbmFormat);
 	if (x >= m_width || y >= m_height)
@@ -160,6 +165,8 @@ auto Image::getRGBPixel(size_t x, size_t y) const->std::expected<RGBPixel, Error
 
 auto Image::setRGBPixel(size_t x, size_t y, const RGBPixel& pixel)->std::expected<void, ErrorType>
 {
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
 	if (m_netpbmType != NetpbmType::PPM)
 		return std::unexpected(ErrorType::InvalidNetpbmFormat);
 	if (x >= m_width || y >= m_height)
@@ -174,6 +181,8 @@ auto Image::setRGBPixel(size_t x, size_t y, const RGBPixel& pixel)->std::expecte
 
 auto Image::getGrayPixel(size_t x, size_t y) const->std::expected<GrayPixel, ErrorType>
 {
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
 	if (m_netpbmType == NetpbmType::PPM)
 		return std::unexpected(ErrorType::InvalidNetpbmFormat);
 	if (x >= m_width || y >= m_height)
@@ -186,6 +195,8 @@ auto Image::getGrayPixel(size_t x, size_t y) const->std::expected<GrayPixel, Err
 
 auto Image::setGrayPixel(size_t x, size_t y, const GrayPixel& pixel)->std::expected<void, ErrorType>
 {
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
 	if (m_netpbmType == NetpbmType::PPM)
 		return std::unexpected(ErrorType::InvalidNetpbmFormat);
 	if (x >= m_width || y >= m_height)
@@ -193,5 +204,87 @@ auto Image::setGrayPixel(size_t x, size_t y, const GrayPixel& pixel)->std::expec
 
 	auto index = size_t{ y * m_width + x };
 	m_data[index] = pixel.g;
+	return {};
+}
+
+auto Image::getRGBData() const -> const std::expected<std::vector<RGBPixel>, ErrorType>
+{
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
+	if (m_netpbmType != NetpbmType::PPM)
+		return std::unexpected(ErrorType::InvalidNetpbmFormat);
+
+	auto totalPixels = size_t{ m_width * m_height };
+	auto rgbData = std::vector<RGBPixel>{};
+	rgbData.reserve(totalPixels);
+
+	for (auto i = size_t{ 0 }; i < totalPixels; ++i)
+	{
+		auto index = i * 3;
+		rgbData.push_back(RGBPixel{ m_data[index], m_data[index + 1], m_data[index + 2] });
+	}
+
+	return rgbData;
+}
+
+auto Image::setRGBData(const std::vector<RGBPixel>& data) -> std::expected<void, ErrorType>
+{
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
+	if (m_netpbmType != NetpbmType::PPM)
+		return std::unexpected(ErrorType::InvalidNetpbmFormat);
+	if (data.size() != m_width * m_height)
+		return std::unexpected(ErrorType::InvalidImageData);
+
+	m_data.clear();
+	m_data.reserve(data.size() * 3);
+
+	for (const auto& pixel : data)
+	{
+		m_data.push_back(pixel.r);
+		m_data.push_back(pixel.g);
+		m_data.push_back(pixel.b);
+	}
+
+	return {};
+}
+
+auto Image::getGrayData() const -> const std::expected<std::vector<GrayPixel>, ErrorType>
+{
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
+	if (m_netpbmType == NetpbmType::PPM)
+		return std::unexpected(ErrorType::InvalidNetpbmFormat);
+
+	auto totalPixels = size_t{ m_width * m_height };
+	auto grayData = std::vector<GrayPixel>{};
+	grayData.reserve(totalPixels);
+
+	for (auto i = size_t{ 0 }; i < totalPixels; ++i)
+	{
+		auto index = i;
+		grayData.push_back(GrayPixel{ m_data[index] });
+	}
+
+	return grayData;
+}
+
+auto Image::setGrayData(const std::vector<GrayPixel>& data) -> std::expected<void, ErrorType>
+{
+	if (!m_isValid)
+		return std::unexpected(ErrorType::InvalidImage);
+	if (m_netpbmType == NetpbmType::PPM)
+		return std::unexpected(ErrorType::InvalidNetpbmFormat);
+	if (data.size() != m_width * m_height)
+		return std::unexpected(ErrorType::InvalidImageData);
+
+	m_data.clear();
+	m_data.reserve(data.size());
+
+	for (const auto& pixel : data)
+	{
+		m_data.push_back(pixel.g);
+	}
+
 	return {};
 }

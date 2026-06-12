@@ -42,6 +42,13 @@ private:
 
 	bool m_isValid{ false };
 	std::vector<uint8_t> m_data;
+
+	template <typename Derived>
+	friend class Filter;
+	friend class InversionFilter;
+	friend class ContrastNormalizationFilter;
+	friend class KernelFilter;
+
 protected:
 public:
 	explicit Image() = default;
@@ -59,6 +66,11 @@ public:
 	auto setRGBPixel(size_t x, size_t y, const RGBPixel& pixel) -> std::expected<void, ErrorType>;
 	auto getGrayPixel(size_t x, size_t y) const -> std::expected<GrayPixel, ErrorType>;
 	auto setGrayPixel(size_t x, size_t y, const GrayPixel& pixel) -> std::expected<void, ErrorType>;
+
+	auto getRGBData() const -> const std::expected<std::vector<RGBPixel>, ErrorType>;
+	auto setRGBData(const std::vector<RGBPixel>& data) -> std::expected<void, ErrorType>;
+	auto getGrayData() const -> const std::expected<std::vector<GrayPixel>, ErrorType>;
+	auto setGrayData(const std::vector<GrayPixel>& data) -> std::expected<void, ErrorType>;
 };
 
 
