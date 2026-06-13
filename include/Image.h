@@ -43,17 +43,14 @@ private:
 	bool m_isValid{ false };
 	std::vector<uint8_t> m_data;
 
-	template <typename Derived>
+	auto invalidate() -> void;
 	friend class Filter;
-	friend class InversionFilter;
-	friend class ContrastNormalizationFilter;
-	friend class KernelFilter;
 
 protected:
 public:
 	explicit Image() = default;
 	auto loadNetpbm(const std::filesystem::path& path) -> std::expected<void, ErrorType>;
-	auto saveNetpbm(const std::filesystem::path& path) const -> std::expected<void, ErrorType>;
+	auto saveNetpbm(const std::filesystem::path& path = "") const -> std::expected<void, ErrorType>;
 
 	auto getImageName() const -> std::string;
 	auto getWidth() const -> size_t;

@@ -1,10 +1,10 @@
-#include<iostream>
+#include<memory>
 
-#include"Image.h"
+#include"IApp.hpp"
 
 int main()
 {
-	auto image = Image{};
-	std::cout << "ImageLab! : " << image.isValid() << std::endl;
+	ConsoleApp app;
+	app.run();
 	return 0;
 }

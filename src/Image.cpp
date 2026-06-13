@@ -149,6 +149,11 @@ auto Image::isValid() const -> bool
 	return m_isValid;
 }
 
+auto Image::invalidate() -> void
+{
+	m_isValid = false;
+}
+
 auto Image::getRGBPixel(size_t x, size_t y) const->std::expected<RGBPixel, ErrorType>
 {
 	if (!m_isValid)
