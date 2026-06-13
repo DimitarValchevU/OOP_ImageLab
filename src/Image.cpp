@@ -67,7 +67,7 @@ auto Image::loadNetpbm(const std::filesystem::path& path) -> std::expected<void,
 	return {};
 }
 
-auto Image::saveNetpbm(const std::filesystem::path& path = std::string{}) const->std::expected<void, ErrorType>
+auto Image::saveNetpbm(const std::filesystem::path& path) const->std::expected<void, ErrorType>
 {
 	try
 	{
@@ -94,12 +94,12 @@ auto Image::saveNetpbm(const std::filesystem::path& path = std::string{}) const-
 		case NetpbmType::PGM:
 			if (usedPath.extension() != ".pgm")
 				return std::unexpected(ErrorType::InvalidNetpbmFormat);
-			ofs << "P1\n";
+			ofs << "P2\n";
 			break;
 		case NetpbmType::PPM:
 			if (usedPath.extension() != ".ppm")
 				return std::unexpected(ErrorType::InvalidNetpbmFormat);
-			ofs << "P1\n";
+			ofs << "P3\n";
 			break;
 		default:
 			break;

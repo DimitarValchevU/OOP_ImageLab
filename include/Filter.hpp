@@ -13,54 +13,72 @@
 #include"Utility.hpp"
 #include"Image.h"
 
-template<typename Derived>
 class Filter
 {
 private:
 protected:
-	typedef std::function<void(RGBPixel&)> RGBPixelFunction;
-	typedef std::function<void(GrayPixel&)> GrayPixelFunction;
+	template <typename RGBPixelFunction, typename GrayPixelFunction>
 	auto processIndividualPixels(Image& image, RGBPixelFunction rgbPixelFunction, GrayPixelFunction grayPixelFunction) const -> std::expected<void, ErrorType>
 	{
-		auto width = image.getWidth();
-		auto height = image.getHeight();
 		auto isRGB = image.getNetpbmType() == NetpbmType::PPM;
 
-		for (auto y = size_t{ 0 }; y < height; ++y)
+		if (isRGB)
 		{
-			for (auto x = size_t{ 0 }; x < width; ++x)
-			{
-				if (isRGB)
-				{
-					auto pixelResult = image.getRGBPixel(x, y);
-					if (!pixelResult)
-						return std::unexpected(pixelResult.error());
+			auto rgbData = image.getRGBData();
+			if (!rgbData)
+				return std::unexpected(rgbData.error());
 
-					auto pixel = pixelResult.value();
-					rgbPixelFunction(pixel);
+			for (auto& pixel : rgbData.value())
+				pixel = rgbPixelFunction(pixel);
+			auto result = image.setRGBData(rgbData.value());
+			if (!result)
+				return std::unexpected(result.error());
 
-					auto setResult = image.setRGBPixel(x, y, pixel);
-					if (!setResult)
-						return std::unexpected(setResult.error());
-				}
-				else
-				{
-					auto pixelResult = image.getGrayPixel(x, y);
-					if (!pixelResult)
-						return std::unexpected(pixelResult.error());
-
-					auto pixel = pixelResult.value();
-					grayPixelFunction(pixel);
-
-					auto setResult = image.setGrayPixel(x, y, pixel);
-					if (!setResult)
-						return std::unexpected(setResult.error());
-				}
-			}
 		}
+		else
+		{
+			auto grayData = image.getGrayData();
+			if (!grayData)
+				return std::unexpected(grayData.error());
+
+			for (auto& pixel : grayData.value())
+				pixel = grayPixelFunction(pixel);
+			auto result = image.setGrayData(grayData.value());
+			if (!result)
+				return std::unexpected(result.error());
+		}
+
+		return {};
+	}
+	template <typename RGBPixelFunction, typename GrayPixelFunction>
+	auto accessIndividualPixels(const Image& image, RGBPixelFunction rgbPixelFunction, GrayPixelFunction grayPixelFunction) const -> std::expected<void, ErrorType>
+	{
+		auto isRGB = image.getNetpbmType() == NetpbmType::PPM;
+
+		if (isRGB)
+		{
+			auto rgbData = image.getRGBData();
+			if (!rgbData)
+				return std::unexpected(rgbData.error());
+
+			for (auto& pixel : rgbData.value())
+				rgbPixelFunction(pixel);
+		}
+		else
+		{
+			auto grayData = image.getGrayData();
+			if (!grayData)
+				return std::unexpected(grayData.error());
+
+			for (auto& pixel : grayData.value())
+				grayPixelFunction(pixel);
+		}
+
+		return {};
 	}
 public:
-	auto apply(Image& image) const -> std::expected<void, ErrorType>
+	template<typename Derived>
+	auto apply(this Derived&& self, Image& image) -> std::expected<void, ErrorType>
 	{
 		if (!image.isValid())
 			return std::unexpected(ErrorType::InvalidImage);
@@ -69,7 +87,7 @@ public:
 		if (data.empty())
 			return std::unexpected(ErrorType::InvalidImage);
 
-		auto result = static_cast<const Derived*>(this)->apply(image);
+		auto result = self._apply(image);
 		if (!result)
 			return std::unexpected(result.error());
 
@@ -77,33 +95,33 @@ public:
 	}
 };
 
-class InversionFilter : public Filter<InversionFilter>
+class InversionFilter : public Filter
 {
 private:
 protected:
 public:
-	auto apply(Image& image) const -> std::expected<void, ErrorType>
+	auto _apply(Image& image) const -> std::expected<void, ErrorType>
 	{
 		return processIndividualPixels(image,
-			[](RGBPixel& pixel) -> RGBPixel
+			[](RGBPixel& pixel) -> void
 			{
 				pixel.r = 255 - pixel.r;
 				pixel.g = 255 - pixel.g;
 				pixel.b = 255 - pixel.b;
 			},
-			[](GrayPixel& pixel) -> GrayPixel
+			[](GrayPixel& pixel) -> void
 			{
 				pixel.g = 255 - pixel.g;
 			});
 	}
 };
 
-class ContrastNormalizationFilter : public Filter<ContrastNormalizationFilter>
+class ContrastNormalizationFilter : public Filter
 {
 private:
 protected:
 public:
-	auto apply(Image& image) const -> std::expected<void, ErrorType>
+	auto _apply(Image& image) const -> std::expected<void, ErrorType>
 	{
 		auto width = image.getWidth();
 		auto height = image.getHeight();
@@ -112,13 +130,13 @@ public:
 		auto minValue = uint8_t{ 255 };
 		auto maxValue = uint8_t{ 0 };
 
-		auto findMinMax = processIndividualPixels(image,
-			[&](RGBPixel& pixel) -> RGBPixel
+		auto findMinMax = accessIndividualPixels(image,
+			[&](RGBPixel& pixel) -> void
 			{
 				minValue = std::min({ minValue, pixel.r, pixel.g, pixel.b });
 				maxValue = std::max({ maxValue, pixel.r, pixel.g, pixel.b });
 			},
-			[&](GrayPixel& pixel) -> GrayPixel
+			[&](GrayPixel& pixel) -> void
 			{
 				minValue = std::min(minValue, pixel.g);
 				maxValue = std::max(maxValue, pixel.g);
@@ -133,20 +151,20 @@ public:
 		auto range = static_cast<uint8_t>(maxValue - minValue);
 
 		return processIndividualPixels(image,
-			[=](RGBPixel& pixel) -> RGBPixel
+			[=](RGBPixel& pixel) -> void
 			{
 				pixel.r = static_cast<uint8_t>(((pixel.r - minValue) * 255) / range);
 				pixel.g = static_cast<uint8_t>(((pixel.g - minValue) * 255) / range);
 				pixel.b = static_cast<uint8_t>(((pixel.b - minValue) * 255) / range);
 			},
-			[=](GrayPixel& pixel) -> GrayPixel
+			[=](GrayPixel& pixel) -> void
 			{
 				pixel.g = static_cast<uint8_t>(((pixel.g - minValue) * 255) / range);
 			});
 	}
 };
 
-class KernelFilter : public Filter<KernelFilter>
+class KernelFilter : public Filter
 {
 private:
 	std::vector<std::vector<float32_t>> m_kernel;
@@ -157,9 +175,10 @@ protected:
 	}
 public:
 	explicit KernelFilter(const std::vector<std::vector<float32_t>>& kernel) : m_kernel(kernel) {}
-	auto apply(Image& image) const -> std::expected<void, ErrorType>
+
+	auto _apply(Image& image) const -> std::expected<void, ErrorType>
 	{
-		if (m_kernel.empty() || m_kernel[0].empty())
+		if (m_kernel.size() == 0 || m_kernel[0].empty())
 			return std::unexpected(ErrorType::InvalidFilter);
 
 		auto width = image.getWidth();
@@ -171,9 +190,6 @@ public:
 		auto radiusX = kernelWidth / 2;
 		auto radiusY = kernelHeight / 2;
 
-		auto tempRGBData = std::vector<RGBPixel>{};
-		auto tempGrayData = std::vector<GrayPixel>{};
-
 		if (isRGB)
 		{
 			auto result = image.getRGBData();
@@ -183,9 +199,9 @@ public:
 			const auto& originalData = result.value();
 			auto newData = originalData;
 
-			for (auto y = size_t{ 0 }; y < height - radiusY; ++y)
+			for (auto y = radiusY; y < height - radiusY; ++y)
 			{
-				for (auto x = size_t{ 0 }; x < width - radiusX; ++x)
+				for (auto x = radiusX; x < width - radiusX; ++x)
 				{
 					auto sumR = float32_t{ 0.0f };
 					auto sumG = float32_t{ 0.0f };
@@ -228,9 +244,9 @@ public:
 			const auto& originalData = result.value();
 			auto newData = originalData;
 
-			for (auto y = size_t{ 0 }; y < height - radiusY; ++y)
+			for (auto y = radiusY; y < height - radiusY; ++y)
 			{
-				for (auto x = size_t{ 0 }; x < width - radiusX; ++x)
+				for (auto x = radiusX; x < width - radiusX; ++x)
 				{
 					auto sum = float32_t{ 0.0f };
 
@@ -303,6 +319,150 @@ public:
 		auto value = 1.0f / totalElements;
 
 		setKernel(std::vector<std::vector<float32_t>>{kernelSize, std::vector<float32_t>(kernelSize, value)});
+	}
+};
+
+class SobelEdgeDetectionFilter : public Filter
+{
+private:
+	bool m_thresholdEnabled;
+	uint8_t m_threshold;
+protected:
+public:
+	explicit SobelEdgeDetectionFilter(bool thresholdEnabled = false, uint8_t threshold = 128) : m_thresholdEnabled(thresholdEnabled), m_threshold(threshold) {}
+
+	auto _apply(Image& image) const -> std::expected<void, ErrorType>
+	{
+		auto width = image.getWidth();
+		auto height = image.getHeight();
+		auto isRGB = image.getNetpbmType() == NetpbmType::PPM;
+
+		auto dxKernel = std::vector<std::vector<float32_t>>
+		{
+			{ -1.0f, 0.0f, 1.0f },
+			{ -2.0f, 0.0f, 2.0f },
+			{ -1.0f, 0.0f, 1.0f }
+		};
+		auto dyKernel = std::vector<std::vector<float32_t>>
+		{
+			{ -1.0f, -2.0f, -1.0f },
+			{ 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 2.0f, 1.0f }
+		};
+
+		if (isRGB)
+		{
+			auto result = image.getRGBData();
+			if (!result)
+				return std::unexpected(result.error());
+
+			const auto& originalData = result.value();
+			auto newData = std::vector<RGBPixel>{ originalData.size(), RGBPixel{0, 0, 0} };
+
+			for (auto y = size_t{ 1 }; y < height - 1; ++y)
+			{
+				for (auto x = size_t{ 1 }; x < width - 1; ++x)
+				{
+					auto sumRx = float32_t{ 0.0f };
+					auto sumGx = float32_t{ 0.0f };
+					auto sumBx = float32_t{ 0.0f };
+
+					auto sumRy = float32_t{ 0.0f };
+					auto sumGy = float32_t{ 0.0f };
+					auto sumBy = float32_t{ 0.0f };
+
+					for (auto ky = size_t{ 0 }; ky < 3; ++ky)
+					{
+						for (auto kx = size_t{ 0 }; kx < 3; ++kx)
+						{
+							auto pixelX = x + kx - 1;
+							auto pixelY = y + ky - 1;
+
+							const auto& neighbourPixel = originalData[pixelY * width + pixelX];
+							auto kernelValueX = dxKernel[ky][kx];
+							sumRx += neighbourPixel.r * kernelValueX;
+							sumGx += neighbourPixel.g * kernelValueX;
+							sumBx += neighbourPixel.b * kernelValueX;
+							auto kernelValueY = dyKernel[ky][kx];
+							sumRy += neighbourPixel.r * kernelValueY;
+							sumGy += neighbourPixel.g * kernelValueY;
+							sumBy += neighbourPixel.b * kernelValueY;
+						}
+					}
+
+					auto magnitudeR = static_cast<uint8_t>(std::clamp(std::sqrt(sumRx * sumRx + sumRy * sumRy), 0.0f, 255.0f));
+					auto magnitudeG = static_cast<uint8_t>(std::clamp(std::sqrt(sumGx * sumGx + sumGy * sumGy), 0.0f, 255.0f));
+					auto magnitudeB = static_cast<uint8_t>(std::clamp(std::sqrt(sumBx * sumBx + sumBy * sumBy), 0.0f, 255.0f));
+
+					auto& pixel = newData[y * width + x];
+					if (m_thresholdEnabled)
+					{
+						pixel.r = (magnitudeR >= m_threshold) ? 255 : 0;
+						pixel.g = (magnitudeG >= m_threshold) ? 255 : 0;
+						pixel.b = (magnitudeB >= m_threshold) ? 255 : 0;
+					}
+					else
+					{
+						pixel.r = magnitudeR;
+						pixel.g = magnitudeG;
+						pixel.b = magnitudeB;
+					}
+				}
+			}
+			auto set = image.setRGBData(newData);
+			if (!set)
+				return set;
+		}
+		else
+		{
+			auto result = image.getGrayData();
+			if (!result)
+				return std::unexpected(result.error());
+
+			const auto& originalData = result.value();
+			auto newData = std::vector<GrayPixel>{ originalData.size(), GrayPixel{0} };
+
+			for (auto y = size_t{ 1 }; y < height - 1; ++y)
+			{
+				for (auto x = size_t{ 1 }; x < width - 1; ++x)
+				{
+					auto sumGx = float32_t{ 0.0f };
+					auto sumGy = float32_t{ 0.0f };
+
+					for (auto ky = size_t{ 0 }; ky < 3; ++ky)
+					{
+						for (auto kx = size_t{ 0 }; kx < 3; ++kx)
+						{
+							auto pixelX = x + kx - 1;
+							auto pixelY = y + ky - 1;
+
+							const auto& neighbourPixel = originalData[pixelY * width + pixelX];
+							auto kernelValueX = dxKernel[ky][kx];
+							sumGx += neighbourPixel.g * kernelValueX;
+							auto kernelValueY = dyKernel[ky][kx];
+							sumGy += neighbourPixel.g * kernelValueY;
+						}
+					}
+
+					auto magnitudeG = static_cast<uint8_t>(std::clamp(std::sqrt(sumGx * sumGx + sumGy * sumGy), 0.0f, 255.0f));
+
+					auto& pixel = newData[y * width + x];
+					if (m_thresholdEnabled)
+					{
+						pixel.g = (magnitudeG >= m_threshold) ? 255 : 0;
+					}
+					else
+					{
+						pixel.g = magnitudeG;
+					}
+				}
+			}
+			auto set = image.setGrayData(newData);
+			if (!set)
+				return set;
+		}
+
+		return {};
 	}
 };
 
