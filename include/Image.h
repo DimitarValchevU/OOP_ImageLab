@@ -2,13 +2,6 @@
 
 #define IMAGE_H
 
-#include<expected>
-#include<string>
-#include<vector>
-#include<memory>
-#include<filesystem>
-#include<cstdint>
-
 #include"Utility.hpp"
 
 enum class NetpbmType
@@ -52,6 +45,7 @@ public:
 	auto loadNetpbm(const std::filesystem::path& path) -> std::expected<void, ErrorType>;
 	auto saveNetpbm(const std::filesystem::path& path = "") const -> std::expected<void, ErrorType>;
 
+	auto setCustomImageName(const std::string& name) -> void;
 	auto getImageName() const -> std::string;
 	auto getWidth() const -> size_t;
 	auto getHeight() const -> size_t;

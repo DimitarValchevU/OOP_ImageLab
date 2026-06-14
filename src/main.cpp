@@ -1,10 +1,12 @@
+#include<iostream>
+
 #include<memory>
 
-#include"IApp.hpp"
+#include"ConsoleApp.hpp"
 
 int main()
 {
 	ConsoleApp app;
-	app.run();
+	auto result = app.run();
 	return 0;
 }

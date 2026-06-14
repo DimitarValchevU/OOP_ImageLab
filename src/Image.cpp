@@ -1,7 +1,3 @@
-#include<sstream>
-#include<fstream>
-#include<iostream>
-
 #include"Image.h"
 
 auto Image::loadNetpbm(const std::filesystem::path& path) -> std::expected<void, ErrorType>
@@ -31,7 +27,10 @@ auto Image::loadNetpbm(const std::filesystem::path& path) -> std::expected<void,
 		if (m_netpbmType != NetpbmType::PBM)
 			ifs >> m_maxColorValue;
 
-		ifs.ignore();
+		//ifs.ignore();
+
+		while (std::isspace(ifs.peek()))
+			ifs.get();
 
 		auto totalPixels = size_t{ m_width * m_height };
 		if (m_netpbmType == NetpbmType::PPM)
@@ -74,10 +73,21 @@ auto Image::saveNetpbm(const std::filesystem::path& path) const->std::expected<v
 		if (!m_isValid)
 			return std::unexpected(ErrorType::InvalidImage);
 
-		auto usedPath = path.empty() ? m_path : path;
-		auto ofs = std::ofstream{ usedPath, std::ios::binary };
-		if (!ofs)
-			return std::unexpected(ErrorType::InvalidFilePath);
+		auto usedPath = std::filesystem::path{};
+
+		if (!path.empty())
+			usedPath = path;
+		else
+		{
+			usedPath = m_path;
+
+			auto newPath = usedPath;
+			newPath.replace_filename(m_name + usedPath.extension().string());
+			if (auto check = std::ofstream{ newPath, std::ios::binary })
+			{
+				usedPath = newPath;
+			}
+		}
 
 		if (usedPath.extension() != ".pbm"
 			&& usedPath.extension() != ".pgm"
@@ -89,16 +99,32 @@ auto Image::saveNetpbm(const std::filesystem::path& path) const->std::expected<v
 		case NetpbmType::PBM:
 			if (usedPath.extension() != ".pbm")
 				return std::unexpected(ErrorType::InvalidNetpbmFormat);
-			ofs << "P1\n";
 			break;
 		case NetpbmType::PGM:
 			if (usedPath.extension() != ".pgm")
 				return std::unexpected(ErrorType::InvalidNetpbmFormat);
-			ofs << "P2\n";
 			break;
 		case NetpbmType::PPM:
 			if (usedPath.extension() != ".ppm")
 				return std::unexpected(ErrorType::InvalidNetpbmFormat);
+			break;
+		default:
+			break;
+		}
+
+		auto ofs = std::ofstream{ usedPath, std::ios::binary };
+		if (!ofs)
+			return std::unexpected(ErrorType::InvalidFilePath);
+
+		switch (m_netpbmType)
+		{
+		case NetpbmType::PBM:
+			ofs << "P1\n";
+			break;
+		case NetpbmType::PGM:
+			ofs << "P2\n";
+			break;
+		case NetpbmType::PPM:
 			ofs << "P3\n";
 			break;
 		default:
@@ -109,8 +135,16 @@ auto Image::saveNetpbm(const std::filesystem::path& path) const->std::expected<v
 		if (m_netpbmType != NetpbmType::PBM)
 			ofs << m_maxColorValue << "\n";
 
+		auto pixelsInLine = size_t{ 0 };
 		for (const auto& pixel : m_data)
+		{
 			ofs << static_cast<int32_t>(pixel) << " ";
+			if (++pixelsInLine >= 32)
+			{
+				ofs << "\n";
+				pixelsInLine = 0;
+			}
+		}
 	}
 	catch (const std::exception&)
 	{
@@ -122,6 +156,12 @@ auto Image::saveNetpbm(const std::filesystem::path& path) const->std::expected<v
 	}
 
 	return {};
+}
+
+auto Image::setCustomImageName(const std::string& name) -> void
+{
+	if (!name.empty())
+		m_name = name;
 }
 
 auto Image::getImageName() const->std::string
